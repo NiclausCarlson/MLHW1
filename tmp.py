@@ -192,53 +192,77 @@ windowTypes = ["fixed", "variable"]
 distFunctions = ["euclidean", "manhattan", "chebyshev"]
 kernelFunctions = ["uniform", "triangular", "epanechnikov", "quartic"]
 
-maxFMeasure = -1
-bestDistFunction = None
-bestKernelFunction = None
-bestWindowType = None
-bestWindowParam = None
-bestArguments = []
+
+class Solve:
+
+    def __init__(self, fMeasure, kernelFunction, distFunction, windowType, windowParam):
+        self.kernelFunction = kernelFunction
+        self.fMeasure = fMeasure
+        self.distFunction = distFunction
+        self.windowType = windowType
+        self.windowParam = windowParam
+
+
+measureForKernels = [[], [], [], []]
+
+
+def setMeasureForKernels(x: Solve, kF):
+    if kF == "uniform":
+        measureForKernels[0].append(x)
+    elif kF == "triangular":
+        measureForKernels[1].append(x)
+    elif kF == "epanechnikov":
+        measureForKernels[2].append(x)
+    else:
+        measureForKernels[3].append(x)
+
 
 for windowType in windowTypes:
     for distFunction in distFunctions:
-        for kernelFunction in kernelFunctions:
-            confusionMatrix = [[0 for i in range(0, 4)] for j in range(0, 4)]
-            dividersList = getListOfWindowWidth(df, distFunction, windowType)
-            for divider in dividersList:
-                for pos in range(0, dataSize):
-                    dfList = df.values.tolist()
-                    targetPoint = dfList[pos]
-                    distF = getDistFunctionTo(distFunction, targetPoint)
-                    sortedDfList = sorted(dfList, key=distF)
+        confusionMatrix = [[0 for i in range(0, 4)] for j in range(0, 4)]
+        dividersList = getListOfWindowWidth(df, distFunction, windowType)
+        for divider in dividersList:
+            for pos in range(0, dataSize):
+                dfList = df.values.tolist()
+                targetPoint = dfList[pos]
+                distF = getDistFunctionTo(distFunction, targetPoint)
+                sortedDfList = sorted(dfList, key=distF)
+                for kernelFunction in kernelFunctions:
                     setConfusionMatrix(confusionMatrix, targetPoint, sortedDfList, distFunction, kernelFunction,
                                        windowType, divider)
-                fMeasure = getFMeasure(confusionMatrix)
-                if fMeasure > maxFMeasure:
-                    maxFMeasure = fMeasure
-                    bestDistFunction = distFunction
-                    bestKernelFunction = kernelFunction
-                    bestWindowType = windowType
-                    bestWindowParam = divider
-                    bestArguments = dividersList
+                    fMeasure = getFMeasure(confusionMatrix)
+                    setMeasureForKernels(Solve(fMeasure, kernelFunction, distFunction, windowType, divider),
+                                         kernelFunction)
+
+
+def comparator(x: Solve, y: Solve):
+    if x.fMeasure > y.fMeasure:
+        return x
+    else:
+        return y
+
+
+bestResult = max([max(t, key=comparator) for t in measureForKernels], key=comparator)
+print("Best hyperparameters is:\nF measure: " + bestResult.fMeasure + "\ndistant function: " + bestResult.distFunction +
+      "\nwindow type: " + bestResult.windowType + "\nwindow param: " + bestResult.windowParam + "\nkernel function: "
+      + bestResult.kernelFunction)
 
 bestFMeasureValue = []
+bestArguments = getListOfWindowWidth(df, bestResult.distFunction, bestResult.windowType)
 confusionMatrix = [[0 for i in range(0, 4)] for j in range(0, 4)]
 
-for divider in bestFMeasureValue:
+for divider in bestArguments:
     for pos in range(0, dataSize):
         dfList = df.values.tolist()
         targetPoint = dfList[pos]
-        distF = getDistFunctionTo(bestDistFunction, targetPoint)
+        distF = getDistFunctionTo(bestResult.distFunction, targetPoint)
         sortedDfList = sorted(dfList, key=distF)
-        setConfusionMatrix(confusionMatrix, targetPoint, sortedDfList, bestDistFunction, bestKernelFunction,
-                           bestWindowType, divider)
+        setConfusionMatrix(confusionMatrix, targetPoint, sortedDfList, bestResult.distFunction,
+                           bestResult.kernelFunction,
+                           bestResult.windowType, divider)
     bestFMeasureValue.append(getFMeasure(confusionMatrix))
 
 fig, ax = plt.subplots()
 ax.plot(bestArguments, bestFMeasureValue)
 plt.show()
 fig.savefig('function graph')
-
-print("Best hyperparameters is:\nF measure: " + maxFMeasure + "\ndistant function: " + bestDistFunction +
-      "\nwindow type: " + bestWindowType + "\nwindow param: " + bestWindowParam + "\nkernel function: "
-      + bestKernelFunction)
