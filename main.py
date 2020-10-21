@@ -70,23 +70,25 @@ def getListOfWindowWidth(dataFrame, distFun, winType):
     if winType == "variable":
         return [i for i in range(1, neighborhoodSize)]
     tmpList = dataFrame.values.tolist()
-    f = getDistFunctionTo(distFun, [0] * 19)
+    f = getDistFunctionTo(distFun, [0] * (len(dataFrame.iloc[0])-3))
     sortedList = sorted(tmpList, key=f)
     maxDist = f(sortedList[-1]) - f(sortedList[0])
     widthList = []
-    a = round(maxDist / neighborhoodSize)
-    for i in range(a, round(maxDist)):
-        widthList.append(i)
+    a = maxDist / neighborhoodSize
+    z = a
+    for i in range(round(a), round(neighborhoodSize)):
+        widthList.append(z)
+        z += a
     return widthList
 
 
 def getClass(obj):
-    tmp = obj[-4:]
-    if tmp == [1, 0, 0, 0]:
+    tmp = obj[-3:]
+    if tmp == [1, 0, 0]:
         return 1
-    elif tmp == [0, 1, 0, 0]:
+    elif tmp == [0, 1, 0]:
         return 2
-    elif tmp == [0, 0, 1, 0]:
+    elif tmp == [0, 0, 1]:
         return 3
     else:
         return 4
@@ -103,19 +105,19 @@ def getRegression(tObj, trainSet, dFunc, kernelFunc, winType, div, clazz):
     distFunc = getDistFunctionTo(dFunc, tObj)
     kernelF = getKernelFunction(kernelFunc)
 
-    result = sum([targetValues[k] for k in range(0, len(trainSet))]) / len(trainSet)
+    result = sum([targetValues[k] for k in range(0, len(trainSet) - 3)]) / len(trainSet)
 
     if winType != "fixed":
         div = distFunc(trainSet[div])
 
     if div != 0:
-        h1 = sum([targetValues[k] * kernelF(distFunc(trainSet[k]) / div) for k in range(0, len(trainSet))])
-        h2 = sum([kernelF(distFunc(trainSet[k]) / div) for k in range(0, len(trainSet))])
+        h1 = sum([targetValues[k] * kernelF(distFunc(trainSet[k]) / div) for k in range(0, len(trainSet) - 3)])
+        h2 = sum([kernelF(distFunc(trainSet[k]) / div) for k in range(0, len(trainSet) - 3)])
         result = h1 / h2
     else:
         if distFunc(trainSet[0]) == 0:
             j = 0
-            while distFunc(trainSet[j]) == 0:
+            while distFunc(trainSet[j]) == 0 and j < len(trainSet) - 3:
                 j += 1
             n = [targetValues[k] for k in range(0, j + 1)]
             if len(n) != 0:
@@ -126,7 +128,7 @@ def getRegression(tObj, trainSet, dFunc, kernelFunc, winType, div, clazz):
 def setConfusionMatrix(confMatrix, tObj, trainSet, dFunc, kernelFunc, winType, div):
     maxRegression = -1
     predictedClass = -1
-    for clazz in range(1, 5):  # let tObj is type classes
+    for clazz in range(1, 4):  # let tObj is type classes
         tmpTrainSet = trainSet
         regression = getRegression(tObj, tmpTrainSet, dFunc, kernelFunc, winType, div, clazz)
         if regression > maxRegression:
@@ -139,7 +141,7 @@ def setConfusionMatrix(confMatrix, tObj, trainSet, dFunc, kernelFunc, winType, d
 
 
 def getFMeasure(confMatrix):
-    n = 4
+    n = 3
 
     def getHorizontalSum(line):
         x = 0
@@ -202,7 +204,7 @@ bestArguments = []
 for windowType in windowTypes:
     for distFunction in distFunctions:
         for kernelFunction in kernelFunctions:
-            confusionMatrix = [[0 for i in range(0, 4)] for j in range(0, 4)]
+            confusionMatrix = [[0 for i in range(0, 3)] for j in range(0, 3)]
             dividersList = getListOfWindowWidth(df, distFunction, windowType)
             for divider in dividersList:
                 for pos in range(0, dataSize):
@@ -222,9 +224,10 @@ for windowType in windowTypes:
                     bestArguments = dividersList
 
 bestFMeasureValue = []
-confusionMatrix = [[0 for i in range(0, 4)] for j in range(0, 4)]
+confusionMatrix = [[0 for i in range(0, 3)] for j in range(0, 3)]
 
-for divider in bestFMeasureValue:
+print(bestArguments)
+for divider in bestArguments:
     for pos in range(0, dataSize):
         dfList = df.values.tolist()
         targetPoint = dfList[pos]
@@ -234,11 +237,19 @@ for divider in bestFMeasureValue:
                            bestWindowType, divider)
     bestFMeasureValue.append(getFMeasure(confusionMatrix))
 
+file = open("save.txt", "w")
+file.write(str(maxFMeasure) + '\n')
+file.write(bestDistFunction + '\n')
+file.write(bestWindowType + '\n')
+file.write(str(bestWindowParam) + '\n')
+file.write(bestKernelFunction + '\n')
+file.close()
+
+print("Best hyperparameters\nF-measure: " + str(maxFMeasure) + "\ndistant function: " + bestDistFunction +
+      "\nwindow type: " + bestWindowType + "\nwindow param: " + str(bestWindowParam) + "\nkernel function: "
+      + bestKernelFunction)
+
 fig, ax = plt.subplots()
 ax.plot(bestArguments, bestFMeasureValue)
 plt.show()
 fig.savefig('function graph')
-
-print("Best hyperparameters is:\nF measure: " + maxFMeasure + "\ndistant function: " + bestDistFunction +
-      "\nwindow type: " + bestWindowType + "\nwindow param: " + bestWindowParam + "\nkernel function: "
-      + bestKernelFunction)
