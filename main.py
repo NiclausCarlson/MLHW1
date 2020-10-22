@@ -70,8 +70,8 @@ def getListOfWindowWidth(dataFrame, distFun, winType):
     if winType == "variable":
         return [i for i in range(1, neighborhoodSize)]
     tmpList = dataFrame.values.tolist()
-    f = getDistFunctionTo(distFun, [0] * (len(dataFrame.iloc[0])-3))
-    sortedList = sorted(tmpList, key=f)
+    f = getDistFunctionTo(distFun, [0] * (len(dataFrame.iloc[0]) - 3))
+    sortedList = sorted(tmpList, key=lambda x: f(x[:-3]))
     maxDist = f(sortedList[-1]) - f(sortedList[0])
     widthList = []
     a = maxDist / neighborhoodSize
@@ -102,24 +102,25 @@ def getRegression(tObj, trainSet, dFunc, kernelFunc, winType, div, clazz):
         else:
             targetValues.append(0)
 
-    distFunc = getDistFunctionTo(dFunc, tObj)
+    distFunc = getDistFunctionTo(dFunc, tObj[:-3])
     kernelF = getKernelFunction(kernelFunc)
 
-    result = sum([targetValues[k] for k in range(0, len(trainSet) - 3)]) / len(trainSet)
+    result = sum([targetValues[k] for k in range(0, len(trainSet))]) / len(trainSet)
 
     if winType != "fixed":
-        div = distFunc(trainSet[div])
+        div = distFunc(trainSet[div][:-3])
 
     if div != 0:
-        h1 = sum([targetValues[k] * kernelF(distFunc(trainSet[k]) / div) for k in range(0, len(trainSet) - 3)])
-        h2 = sum([kernelF(distFunc(trainSet[k]) / div) for k in range(0, len(trainSet) - 3)])
-        result = h1 / h2
+        h1 = sum([targetValues[k] * kernelF(distFunc(trainSet[k][:-3]) / div) for k in range(0, len(trainSet))])
+        h2 = sum([kernelF(distFunc(trainSet[k][:-3]) / div) for k in range(0, len(trainSet))])
+        if h2 != 0:
+            result = h1 / h2
     else:
-        if distFunc(trainSet[0]) == 0:
+        if distFunc(trainSet[0][:-3]) == 0:
             j = 0
-            while distFunc(trainSet[j]) == 0 and j < len(trainSet) - 3:
+            while distFunc(trainSet[j][:-3]) == 0 and j < len(trainSet):
                 j += 1
-            n = [targetValues[k] for k in range(0, j + 1)]
+            n = [targetValues[k][:-3] for k in range(0, j + 1)]
             if len(n) != 0:
                 result = sum(n) / len(n)
     return result
@@ -128,6 +129,7 @@ def getRegression(tObj, trainSet, dFunc, kernelFunc, winType, div, clazz):
 def setConfusionMatrix(confMatrix, tObj, trainSet, dFunc, kernelFunc, winType, div):
     maxRegression = -1
     predictedClass = -1
+
     for clazz in range(1, 4):  # let tObj is type classes
         tmpTrainSet = trainSet
         regression = getRegression(tObj, tmpTrainSet, dFunc, kernelFunc, winType, div, clazz)
@@ -135,8 +137,9 @@ def setConfusionMatrix(confMatrix, tObj, trainSet, dFunc, kernelFunc, winType, d
             maxRegression = regression
             predictedClass = clazz
 
-    trueClass = getClass(tObj)
-    confMatrix[trueClass - 1][predictedClass - 1] += 1
+    trueClazz = getClass(tObj)
+    confMatrix[trueClazz - 1][predictedClass - 1] += 1
+
     return 0
 
 
@@ -204,17 +207,19 @@ bestArguments = []
 for windowType in windowTypes:
     for distFunction in distFunctions:
         for kernelFunction in kernelFunctions:
-            confusionMatrix = [[0 for i in range(0, 3)] for j in range(0, 3)]
             dividersList = getListOfWindowWidth(df, distFunction, windowType)
             for divider in dividersList:
+                confusionMatrix = [[0 for i in range(0, 3)] for j in range(0, 3)]
                 for pos in range(0, dataSize):
                     dfList = df.values.tolist()
                     targetPoint = dfList[pos]
-                    distF = getDistFunctionTo(distFunction, targetPoint)
-                    sortedDfList = sorted(dfList, key=distF)
+                    del dfList[pos]
+                    distF = getDistFunctionTo(distFunction, targetPoint[:-3])
+                    sortedDfList = sorted(dfList, key=lambda x: distF(x[:-3]))
                     setConfusionMatrix(confusionMatrix, targetPoint, sortedDfList, distFunction, kernelFunction,
                                        windowType, divider)
                 fMeasure = getFMeasure(confusionMatrix)
+
                 if fMeasure > maxFMeasure:
                     maxFMeasure = fMeasure
                     bestDistFunction = distFunction
@@ -226,13 +231,14 @@ for windowType in windowTypes:
 bestFMeasureValue = []
 confusionMatrix = [[0 for i in range(0, 3)] for j in range(0, 3)]
 
-print(bestArguments)
 for divider in bestArguments:
+    confusionMatrix = [[0 for i in range(0, 3)] for j in range(0, 3)]
     for pos in range(0, dataSize):
         dfList = df.values.tolist()
         targetPoint = dfList[pos]
-        distF = getDistFunctionTo(bestDistFunction, targetPoint)
-        sortedDfList = sorted(dfList, key=distF)
+        del dfList[pos]
+        distF = getDistFunctionTo(bestDistFunction, targetPoint[:-3])
+        sortedDfList = sorted(dfList, key=lambda x: distF(x[:-3]))
         setConfusionMatrix(confusionMatrix, targetPoint, sortedDfList, bestDistFunction, bestKernelFunction,
                            bestWindowType, divider)
     bestFMeasureValue.append(getFMeasure(confusionMatrix))
