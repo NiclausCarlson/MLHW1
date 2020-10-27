@@ -63,12 +63,12 @@ def getKernelFunction(name):
 
 df = pd.read_csv("data/normies.csv", sep=',')
 dataSize = len(df.axes[0])
-neighborhoodSize = round(math.sqrt(dataSize))
+neighborhoodSize = math.sqrt(dataSize)
 
 
 def getListOfWindowWidth(dataFrame, distFun, winType):
     if winType == "variable":
-        return [i for i in range(1, neighborhoodSize)]
+        return [i for i in range(1, round(neighborhoodSize))]
     tmpList = dataFrame.values.tolist()
     f = getDistFunctionTo(distFun, [0] * (len(dataFrame.iloc[0]) - 3))
     sortedList = sorted(tmpList, key=lambda x: f(x[:-3]))
@@ -76,7 +76,7 @@ def getListOfWindowWidth(dataFrame, distFun, winType):
     widthList = []
     a = maxDist / neighborhoodSize
     z = a
-    for i in range(round(a), round(neighborhoodSize)):
+    while z <= maxDist:
         widthList.append(z)
         z += a
     return widthList
@@ -226,10 +226,9 @@ for windowType in windowTypes:
                     bestKernelFunction = kernelFunction
                     bestWindowType = windowType
                     bestWindowParam = divider
-                    bestArguments = dividersList
+                    bestArguments = dividersList.copy()
 
 bestFMeasureValue = []
-confusionMatrix = [[0 for i in range(0, 3)] for j in range(0, 3)]
 
 for divider in bestArguments:
     confusionMatrix = [[0 for i in range(0, 3)] for j in range(0, 3)]
